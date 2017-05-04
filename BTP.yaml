@@ -1,0 +1,19 @@
+---
+Project: BTP
+Environments:
+  - BTO2:
+    Description: BT3 environment for BTP
+    dryad-core: dryad-btp-bt03-mn.lab.up
+    dryad-port: 8080
+  - PRD:
+    Description: Prd Environment for BTP
+    dryad-core: lhvmsrv299.lh.upstreamsystems.com
+    dryad-port: 8080
+modules:
+   dryad-routing:
+      shortcodes:
+         - list
+modules:
+   dryad-campaignmgt:
+      rules:
+         - list
