@@ -3,6 +3,7 @@ import yaml
 import pprint
 from deepdiff import DeepDiff
 import requests
+from jsonpath_rw import jsonpath, parse
 from operator import itemgetter, attrgetter
 from json_delta import load_and_diff, udiff, diff
 import sys
@@ -38,8 +39,6 @@ def extract_key(obj):
         return  obj['key']
     except KeyError:
         return 0
-
-
 
 def traverse(obj, path=None, callback=None):
     """
@@ -103,16 +102,42 @@ def to_path(path):
 
     return list(_iter_path(path))[:-1]
 
+def deleteKeys(obj,trash):
+    if isinstance(obj,list):
+        myobj = []
+        for item in obj:
+            if not isinstance(item,dict):
+                continue
+            myitem = {}
+            for k,v in item.iteritems():
+                if k not in trash:
+                    myitem[k] = v
+            myobj.append(myitem)
+    return myobj
 
-def get_json(endpoint,exclude=None):
+
+def filterJson(obj,path,values):
+    jsonpath_expr = parse(path)
+    if isinstance(obj, list):
+        myobj = []
+        for item in obj:
+            matches = [match.value for match in jsonpath_expr.find(item)]
+            if matches and matches[0] in values:
+                myobj.append(item)
+        return myobj
+
+def findPossition(obj,path):
+    jsonpath_expr = parse(path)
+
+def get_json(endpoint,filter=None):
     try:
         r = requests.get(endpoint)
         if r.status_code == requests.codes.ok:
             print r.url
-            if not exclude:
+            if not filter:
                 return r.json()
             else:
-                return deleteKeys(r.json(),exclude)
+                return filterJson(r.json(),)
     except ValueError as e:
         if "No JSON object could be decoded" in str(e):
             return {}
@@ -121,57 +146,61 @@ yaml_file = 'CVP.yaml'
 with open(yaml_file, 'r') as f:
     config = yaml.load(f)
 
-host = "%s:%s" % (config['Environments'][0]['dryad-core'],config['Environments'][0]['dryad-port'])
-hosts = ["%s:%s" % (h['dryad-core'],h['dryad-port']) for h in config['Environments']]
+urls = []
 
-endpoints = []
-details = {}
-for m in config['modules'].keys():
-    for o in config['modules'][m]:
-        for a in config['modules'][m][o]:
-            endpoints.append('/'.join([m,o,a]))
+for env in config['Environments']:
+    url = "http://%s:%s" % (env['dryad-core'],env['dryad-port'])
+    urls.append(url)
 
+first_obj = None
+second_obj = None
 
-
-
-for e in endpoints:
-    urls = ("http://%s/%s" % (hosts[0],e),"http://%s/%s" % (hosts[1],e))
-    json1 = get_json(urls[0],exclude=['batchProcessId',u'keywordId',u'id',u'identifier',u'shortCodeId',u'uri',u'contextId',u'endpointId',u'shortcode',u'dependencyRouteId',u'additionalParameters',u'outboundRouteId'])
-    json2 = get_json(urls[1],exclude=['batchProcessId',u'keywordId',u'id',u'identifier',u'shortCodeId',u'uri',u'contextId',u'endpointId',u'shortcode',u'dependencyRouteId',u'additionalParameters',u'outboundRouteId'])
-    json1sorted = sort_by_key(json1,'description')
-    json2sorted = sort_by_key(json2, 'description')
-
-    delta = diff(json1sorted,json2sorted)
-    pp.pprint(delta)
-    """
-    diff = DeepDiff(json1sorted, json2sorted, ignore_order=True)
+items = {}
 
 
-    print " ====== Examing endpoint %s" % e
-    pp.pprint(diff)
-    added = []
-    removed = []
+for module in config['modules']:
 
-    if diff:
-        try:
-            if 'iterable_item_added' in diff.keys():
-                for a in diff['iterable_item_added'].keys():
-                    #pp.pprint(diff['iterable_item_added'][a])
-                    added.append(diff['iterable_item_added'][a])
+    for dryad_function,details in  module.iteritems():
+        items[dryad_function] = {}
+        for dryad_element in details.keys():
+            pp.pprint(dryad_element)
+            items[dryad_function][dryad_element] = { 'urls':[], 'json_data':{'first':{'raw':{},'filtered':{}},'second':{'raw':{},'filtered':{}}}}
+            for u in urls:
+                endpoint = "%s/%s" % (u,details[dryad_element]['path'])
+                items[dryad_function][dryad_element]['urls'].append(u)
+                if not first_obj:
+                    first_obj = get_json(endpoint)
+                    items[dryad_function][dryad_element]['json_data']['first']['raw'] = first_obj
+                else:
+                    items[dryad_function][dryad_element]['json_data']['second']['raw'] = first_obj
+                    second_obj = get_json(endpoint)
 
-            if 'iterable_item_removed' in diff.keys():
-                for r in diff['iterable_item_removed'].keys():
-                    #pp.pprint(diff['iterable_item_removed'][r])
-                    removed.append(diff['iterable_item_removed'][r])
+        for path in details[dryad_element]['filters'].keys():
 
-        except (KeyError,AttributeError) as e:
-            print str(e),type(e)
-            sys.exit(0)
-    else:
-        print " ====== No diffrence found"
-    """
+            first_obj = filterJson(first_obj,path,details[dryad_element]['filters'][path])
+            items[dryad_function][dryad_element]['json_data']['first']['filtered'] = first_obj
+            second_obj = filterJson(second_obj, path, details[dryad_element]['filters'][path])
+            items[dryad_function][dryad_element]['json_data']['second']['filtered'] = second_obj
+            match_fields = details[dryad_element]['match_fields']
+            items[dryad_function][dryad_element]['match_fields'] = details[dryad_element]['match_fields']
 
-#for host in details.keys():
-#    for endpoint in details[host].keys():
-#        print endpoint
 
+
+pp.pprint(items)
+diffs = {}
+
+for item in first_obj:
+    for field in match_fields:
+        if field in item.keys():
+            match = item[field]
+            diffs[match] = []
+            for second_item in second_obj:
+                if field in second_item.keys():
+                    if match ==  second_item[field]:
+                        diff = DeepDiff(item,second_item,ignore_order=True,exclude_paths={"root['id']","root['trigger']['id']","root['action']['contextId']"})
+                        diffs[match].append(diff)
+                else:
+                    print "No matching item found"
+
+
+pp.pprint(diffs)

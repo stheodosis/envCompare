@@ -1,6 +1,6 @@
 ---
 Project: CVP
-  Environments:
+Environments:
   - BT1:
     Description: BT1 environment for CVP
     dryad-core: dryad-cvp-bt01-mn.lab.up
@@ -9,17 +9,19 @@ Project: CVP
     Description: Prd Environment for CVP
     dryad-core: mdvmsrv844.internal.upstreamsystems.com
     dryad-port: 8080
-  modules:
-     dryad-campaignmgt:
-        entpoints:
-          rules:
-            path: dryad-campaignmgt/rules/list
-            filters:
-              trigger.eventType:
-                - SUBSCRIPTION_GROUP_CANCELLATION
-                - SUBSCRIPTION_CANCELLATION
-            match_fields:
-                - description
-            ignore_fields:
-                - id
+modules:
+  - dryad-campaignmgt:
+      rules:
+        path: dryad-campaignmgt/rules/list?triggerType=EVENT
+        filters:
+          trigger.eventType:
+            - SUBSCRIPTION_GROUP_CANCELLATION
+            - SUBSCRIPTION_CANCELLATION
+        match_fields:
+            - description
+        ignore_fields:
+            - id
+            - eventFilter
+            - trigger
+
 
