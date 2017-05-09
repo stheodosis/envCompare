@@ -10,10 +10,47 @@ Environments:
     dryad-core: lhvmsrv299.lh.upstreamsystems.com
     dryad-port: 8080
 modules:
-   dryad-routing:
-      shortcodes:
-         - list
-modules:
-   dryad-campaignmgt:
+  - dryad-campaignmgt:
       rules:
-         - list
+        path: dryad-campaignmgt/rules/list?triggerType=EVENT
+        filters:
+          trigger.eventType:
+            - SUBSCRIPTION_GROUP_CANCELLATION
+            - SUBSCRIPTION_CANCELLATION
+        match_fields:
+            - description
+        ignore_fields:
+            - id
+            - eventFilter
+            - trigger.id
+            - action.contextId
+  - dryad-routing:
+      shortcodes:
+        path: dryad-routing/shortcodes/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+      context-mappings:
+        path: dryad-routing/context-mappings/list
+        match_fields:
+            - name
+        ignore_fields:
+            - identifier
+            - id
+      endpoints:
+        path: dryad-routing/endpoints/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+            - uri
+            - shortCodeId
+      inbound-routes:
+        path: dryad-routing/inbound-routes/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+            - contextId
+            - keywordId

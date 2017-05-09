@@ -22,6 +22,49 @@ modules:
         ignore_fields:
             - id
             - eventFilter
-            - trigger
-
-
+            - trigger.id
+            - action.contextId
+  - dryad-routing:
+      shortcodes:
+        path: dryad-routing/shortcodes/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+      context-mappings:
+        path: dryad-routing/context-mappings/list
+        match_fields:
+            - name
+        ignore_fields:
+            - identifier
+            - id
+      endpoints:
+        path: dryad-routing/endpoints/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+            - uri
+            - shortCodeId
+            - throttling
+            - delay
+      inbound-routes:
+        path: dryad-routing/inbound-routes/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+            - contextId
+            - keywordId
+            - throttling
+            - delay
+      outbound-routes:
+        path: dryad-routing/outbound-routes/list
+        match_fields:
+            - name
+        ignore_fields:
+            - id
+            - endpointId
+            - contextId
+            - throttling
+            - delay

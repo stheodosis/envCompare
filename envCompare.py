@@ -126,8 +126,14 @@ def filterJson(obj,path,values):
                 myobj.append(item)
         return myobj
 
-def findPossition(obj,path):
-    jsonpath_expr = parse(path)
+def ignoreFields(listOfFields):
+  #['id','trigger.id',action.contextId]
+  #{"root['id']","root['trigger']['id']","root['action']['contextId']"}
+  rfields = []
+  for field in listOfFields:
+      fieldsplit = field.split(".")
+      rfields.append("root['%s']" % "']['".join(fieldsplit))
+  return {f for f in rfields}
 
 def get_json(endpoint,filter=None):
     try:
@@ -156,15 +162,25 @@ first_obj = None
 second_obj = None
 
 items = {}
-
+diffs = {}
 
 for module in config['modules']:
 
     for dryad_function,details in  module.iteritems():
         items[dryad_function] = {}
         for dryad_element in details.keys():
+            first_obj = {}
+            second_obj = {}
+
             pp.pprint(dryad_element)
             items[dryad_function][dryad_element] = { 'urls':[], 'json_data':{'first':{'raw':{},'filtered':{}},'second':{'raw':{},'filtered':{}}}}
+
+            match_fields = details[dryad_element]['match_fields']
+            ignore = details[dryad_element]['ignore_fields'] if 'ignore_fields' in  details[dryad_element].keys() \
+                else []
+            items[dryad_function][dryad_element]['match_fields'] = details[dryad_element]['match_fields']
+
+
             for u in urls:
                 endpoint = "%s/%s" % (u,details[dryad_element]['path'])
                 items[dryad_function][dryad_element]['urls'].append(u)
@@ -175,32 +191,32 @@ for module in config['modules']:
                     items[dryad_function][dryad_element]['json_data']['second']['raw'] = first_obj
                     second_obj = get_json(endpoint)
 
-        for path in details[dryad_element]['filters'].keys():
+            if 'filters' in details[dryad_element].keys():
+                for path in details[dryad_element]['filters'].keys():
 
-            first_obj = filterJson(first_obj,path,details[dryad_element]['filters'][path])
-            items[dryad_function][dryad_element]['json_data']['first']['filtered'] = first_obj
-            second_obj = filterJson(second_obj, path, details[dryad_element]['filters'][path])
-            items[dryad_function][dryad_element]['json_data']['second']['filtered'] = second_obj
-            match_fields = details[dryad_element]['match_fields']
-            items[dryad_function][dryad_element]['match_fields'] = details[dryad_element]['match_fields']
-
+                    first_obj = filterJson(first_obj,path,details[dryad_element]['filters'][path])
+                    items[dryad_function][dryad_element]['json_data']['first']['filtered'] = first_obj
+                    second_obj = filterJson(second_obj, path, details[dryad_element]['filters'][path])
+                    items[dryad_function][dryad_element]['json_data']['second']['filtered'] = second_obj
 
 
-pp.pprint(items)
-diffs = {}
 
-for item in first_obj:
-    for field in match_fields:
-        if field in item.keys():
-            match = item[field]
-            diffs[match] = []
-            for second_item in second_obj:
-                if field in second_item.keys():
-                    if match ==  second_item[field]:
-                        diff = DeepDiff(item,second_item,ignore_order=True,exclude_paths={"root['id']","root['trigger']['id']","root['action']['contextId']"})
-                        diffs[match].append(diff)
-                else:
-                    print "No matching item found"
+            for item in first_obj:
+                for field in match_fields:
+                    if field in item.keys():
+                        match = item[field]
+                        diffs[match] = []
+                        for second_item in second_obj:
+                            if field in second_item.keys():
+                                if match ==  second_item[field]:
+                                    fields = ignore
+                                    diff = DeepDiff(item,second_item,ignore_order=True,exclude_paths=ignoreFields(fields))
+                                    if diff:
+                                        print "Found  Difference{s) in %s" % item[field]
+                                        diffs[match].append(diff)
+                                        pp.pprint(diff)
+
+                            else:
+                                print "No matching item found"
 
 
-pp.pprint(diffs)
