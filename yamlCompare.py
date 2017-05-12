@@ -6,7 +6,7 @@ from deepdiff import DeepDiff
 from jsonpath_rw import parse
 import argparse
 import logging
-import sys
+from colorama import init, Fore, Back, Style
 
 def ignoreFields(listOfFields):
 
@@ -140,36 +140,57 @@ if __name__ == '__main__':
             for key,value in keysdiff['iterable_item_added'].iteritems():
                 diffs[file]['added'].append(value)
 
-
-
     yaml_dumps = {}
     for module in diffs.keys():
+        init()
         yaml_dumps[module] = {}
         if diffs[module]:
             for item in diffs[module].keys():
                 if 'added' == item:
-                    log.critical("Found %s new item(s) in %s on Production: %s" % (len(diffs[module]['added']),module,diffs[module]['added']))
+                    log.critical("Found %s new item(s) in %s on Production" % (len(diffs[module]['added']),module))
                     log.warning(diffs[module]['added'])
                 elif 'removed' == item:
-                    log.critical("Found %s items in %s on BT but not on Production: %s " % (len(diffs[module]['removed']),module, diffs[module]['removed']))
+                    log.critical("Found %s items in %s on BT but not on Production" % (len(diffs[module]['removed']),module))
                     log.warning(diffs[module]['removed'])
                 else:
+                    mykeys = []
                     for type in diffs[module][item]:
                         log.critical("Found Diffrence in %s -> %s : %s " % (module,item,type))
                         log.warning(diffs[module][item][type])
-                    else:
-                         yaml_dumps[module][item] = [bt_ordered[module][item],prd_ordered[module][item]]
-
-
+                        try:
+                            for k in diffs[module][item][type].keys():
+                                k = k.replace('root[','')
+                                k = k.replace("'","")
+                                k = k.replace("][",'.')
+                                k = k.replace(']','')
+                                mykeys.append(k)
+                        except AttributeError:
+                            pass
                     if args.show_items and module in bt_ordered.keys() and module in prd_ordered.keys():
+
                             print "======= BT YAML ITEM =============="
-                            print yaml.safe_dump(bt_ordered[module][item],indent=4)
+                            yaml_out = yaml.safe_dump(bt_ordered[module][item],indent=4)
+
+                            for line in yaml_out.split('\n'):
+                                line_fields = line.split(':')
+                                becompared = line_fields[0]
+                                for k in mykeys:
+                                    if becompared.strip() in k.split('.'):
+                                        print(Fore.RED + line)
+                                        break
+                                else:
+                                    print (Style.RESET_ALL + line)
                             print "======= PRD YAML ITEM ============="
-                            print yaml.safe_dump(prd_ordered[module][item],indent=4)
-
-
-
-
-
+                            yaml_out = yaml.safe_dump(prd_ordered[module][item],indent=4)
+                            for line in yaml_out.split('\n'):
+                                line_fields = line.split(':')
+                                becompared = line_fields[0]
+                                for k in mykeys:
+                                    init()
+                                    if becompared.strip() in k.split('.'):
+                                        print(Fore.RED + line)
+                                        break
+                                else:
+                                    print(Style.RESET_ALL + line)
 
 
