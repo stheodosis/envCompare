@@ -45,6 +45,7 @@ if __name__ == '__main__':
                      nargs='*', default=['uri','identifier', 'throttling', 'delay'])
     arg.add_argument('-m', '--modules', help="Specify Dryad Modules",
                      nargs='*', default=[])
+    arg.add_argument('--show-items', help="Output Diffrences", action="store_true", default=False)
     arg.add_argument('-v','--verbose', help="Verbosity Level",
                      action="count", default=0)
 
@@ -77,15 +78,16 @@ if __name__ == '__main__':
     f = []
     for (dirpath, dirnames, filenames) in walk(btpath):
             f.extend(filenames)
-
+    bt_ordered = {}
+    prd_ordered = {}
     for filename in filenames:
 
         file, extension = filename.split('.')
         if (args.modules and not file in args.modules) or (extension not in ['yaml','yml']):
             continue
         diffs[file] = {}
-        bt_ordered = {}
-        prd_ordered = {}
+        bt_ordered[file] = {}
+        prd_ordered[file] = {}
 
         bt_yaml = "%s/%s" % (btpath , filename)
         prd_yaml = "%s/%s" % (prdpath , filename)
@@ -100,7 +102,6 @@ if __name__ == '__main__':
             continue
 
         for m in  matches:
-
             if findKey(bt_json, m):
                 bt_paths = findKey(bt_json, m)
                 prd_paths = findKey(prd_json, m)
@@ -112,21 +113,21 @@ if __name__ == '__main__':
         if bt_paths:
             for path in bt_paths:
                 log.debug("%s:%s" % (path[1],path[2]))
-                bt_ordered[path[1]] = path[2]
+                bt_ordered[file][path[1]] = path[2]
         else:
             log.info("Did not find  any of match patterns in bt environment in %s" % filename)
 
         if prd_paths:
             for path in prd_paths:
-                prd_ordered[path[1]]=path[2]
-        else:                                                                                 
+                prd_ordered[file][path[1]]=path[2]
+        else:
             log.info("Did not find anything on match patterns in Production environment in %s" % filename)
-            
-        keysdiff = DeepDiff(bt_ordered.keys(),prd_ordered.keys(),ignore_order=True)
-        for item in bt_ordered.keys():
-            if(item in prd_ordered.keys()):
-                order = False if isinstance(bt_ordered[item],list) else True
-                diff = DeepDiff(bt_ordered[item],prd_ordered[item],ignore_order=order ,exclude_paths=ignoreFields(ignore_fields))
+
+        keysdiff = DeepDiff(bt_ordered[file].keys(),prd_ordered[file].keys(),ignore_order=True)
+        for item in bt_ordered[file].keys():
+            if(item in prd_ordered[file].keys()):
+                order = False if isinstance(bt_ordered[file][item],list) else True
+                diff = DeepDiff(bt_ordered[file][item],prd_ordered[file][item],ignore_order=order ,exclude_paths=ignoreFields(ignore_fields))
                 if diff:
                     diffs[file] = { item:diff }
         if 'iterable_item_removed' in keysdiff.keys():
@@ -140,21 +141,35 @@ if __name__ == '__main__':
                 diffs[file]['added'].append(value)
 
 
+
+    yaml_dumps = {}
     for module in diffs.keys():
+        yaml_dumps[module] = {}
         if diffs[module]:
             for item in diffs[module].keys():
                 if 'added' == item:
-                    log.critical("Found %s new item(s) in %s on Production" % (len(diffs[module]['added']),module))
+                    log.critical("Found %s new item(s) in %s on Production: %s" % (len(diffs[module]['added']),module,diffs[module]['added']))
                     log.warning(diffs[module]['added'])
                 elif 'removed' == item:
-                    log.critical("Found %s items in %s on BT but not on Production" % (len(diffs[module]['removed']),module))
+                    log.critical("Found %s items in %s on BT but not on Production: %s " % (len(diffs[module]['removed']),module, diffs[module]['removed']))
                     log.warning(diffs[module]['removed'])
                 else:
                     for type in diffs[module][item]:
                         log.critical("Found Diffrence in %s -> %s : %s " % (module,item,type))
                         log.warning(diffs[module][item][type])
-                #else:
-                #    print "+++++++++++++++++++++++++= %s =++++++++++++++++++++++++++" % item
-                #    pass
+                    else:
+                         yaml_dumps[module][item] = [bt_ordered[module][item],prd_ordered[module][item]]
 
-                #pp.pprint(diffs[module][item])
+
+                    if args.show_items and module in bt_ordered.keys() and module in prd_ordered.keys():
+                            print "======= BT YAML ITEM =============="
+                            print yaml.safe_dump(bt_ordered[module][item],indent=4)
+                            print "======= PRD YAML ITEM ============="
+                            print yaml.safe_dump(prd_ordered[module][item],indent=4)
+
+
+
+
+
+
+
