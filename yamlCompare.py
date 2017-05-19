@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import yaml
+import ruamel.yaml
 import pprint
 from os import walk
 from deepdiff import DeepDiff
@@ -83,6 +83,7 @@ if __name__ == '__main__':
     for filename in filenames:
 
         file, extension = filename.split('.')
+
         if (args.modules and not file in args.modules) or (extension not in ['yaml','yml']):
             continue
         diffs[file] = {}
@@ -93,9 +94,9 @@ if __name__ == '__main__':
         prd_yaml = "%s/%s" % (prdpath , filename)
         try:
             with open(bt_yaml) as b:
-                bt_json = yaml.load(b)
+                bt_json = ruamel.yaml.load(b, Loader=ruamel.yaml.Loader)
             with open(prd_yaml) as p:
-                prd_json = yaml.load(p)
+                prd_json = ruamel.yaml.load(p, Loader=ruamel.yaml.Loader)
         except Exception as e:
             log.critical("Could not parse Yaml file %s" % filename)
             log.critical("Got error: %s" % str(e))
@@ -127,6 +128,7 @@ if __name__ == '__main__':
         for item in bt_ordered[file].keys():
             if(item in prd_ordered[file].keys()):
                 order = False if isinstance(bt_ordered[file][item],list) else True
+                ignore_fields = args.ignore
                 diff = DeepDiff(bt_ordered[file][item],prd_ordered[file][item],ignore_order=order ,exclude_paths=ignoreFields(ignore_fields))
                 if diff:
                     diffs[file] = { item:diff }
@@ -165,11 +167,17 @@ if __name__ == '__main__':
                                 k = k.replace(']','')
                                 mykeys.append(k)
                         except AttributeError:
-                            pass
+                            for k in diffs[module][item][type]:
+                                k = k.replace('root[', '')
+                                k = k.replace("'", "")
+                                k = k.replace("][", '.')
+                                k = k.replace(']', '')
+                                mykeys.append(k)
+
                     if args.show_items and module in bt_ordered.keys() and module in prd_ordered.keys():
 
-                            print "======= BT YAML ITEM =============="
-                            yaml_out = yaml.safe_dump(bt_ordered[module][item],indent=4)
+                            print "======= BT YAML ITEM: %s: %s ==============" % (module,item)
+                            yaml_out = ruamel.yaml.round_trip_dump(bt_ordered[module][item],indent=4)
 
                             for line in yaml_out.split('\n'):
                                 line_fields = line.split(':')
@@ -180,13 +188,12 @@ if __name__ == '__main__':
                                         break
                                 else:
                                     print (Style.RESET_ALL + line)
-                            print "======= PRD YAML ITEM ============="
-                            yaml_out = yaml.safe_dump(prd_ordered[module][item],indent=4)
+                            print "======= PRD YAML ITEM: %s: %s =============" % (module,item)
+                            yaml_out = ruamel.yaml.round_trip_dump(prd_ordered[module][item],indent=4)
                             for line in yaml_out.split('\n'):
                                 line_fields = line.split(':')
                                 becompared = line_fields[0]
                                 for k in mykeys:
-                                    init()
                                     if becompared.strip() in k.split('.'):
                                         print(Fore.RED + line)
                                         break
