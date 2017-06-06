@@ -126,12 +126,15 @@ if __name__ == '__main__':
 
         keysdiff = DeepDiff(bt_ordered[file].keys(),prd_ordered[file].keys(),ignore_order=True)
         for item in bt_ordered[file].keys():
+            diffs[file][item] = []
             if(item in prd_ordered[file].keys()):
                 order = False if isinstance(bt_ordered[file][item],list) else True
                 ignore_fields = args.ignore
                 diff = DeepDiff(bt_ordered[file][item],prd_ordered[file][item],ignore_order=order ,exclude_paths=ignoreFields(ignore_fields))
                 if diff:
-                    diffs[file] = { item:diff }
+                    diffs[file][item].append(diff)
+                log.debug("Diff in %s:%s" % (file,item))
+                log.debug(diff)
         if 'iterable_item_removed' in keysdiff.keys():
             diffs[file]['removed'] = []
             for key,value in keysdiff['iterable_item_removed'].iteritems():
@@ -143,6 +146,7 @@ if __name__ == '__main__':
                 diffs[file]['added'].append(value)
 
     yaml_dumps = {}
+    log.debug(diffs)
     for module in diffs.keys():
         init()
         yaml_dumps[module] = {}
@@ -156,18 +160,19 @@ if __name__ == '__main__':
                     log.warning(diffs[module]['removed'])
                 else:
                     mykeys = []
-                    for type in diffs[module][item]:
-                        log.critical("Found Diffrence in %s -> %s : %s " % (module,item,type))
-                        log.warning(diffs[module][item][type])
+                    for d in diffs[module][item]:
+                        log.critical("Found Diffrence in %s -> %s : %s " % (module,item,d))
+                        log.critical("Found Diffrence in %s -> %s : %s " % (module,item,d))
+                        log.warning(d)
                         try:
-                            for k in diffs[module][item][type].keys():
+                            for k in d.keys():
                                 k = k.replace('root[','')
                                 k = k.replace("'","")
                                 k = k.replace("][",'.')
                                 k = k.replace(']','')
                                 mykeys.append(k)
                         except AttributeError:
-                            for k in diffs[module][item][type]:
+                            for k in d:
                                 k = k.replace('root[', '')
                                 k = k.replace("'", "")
                                 k = k.replace("][", '.')
