@@ -162,24 +162,24 @@ if __name__ == '__main__':
                     mykeys = []
                     for d in diffs[module][item]:
                         log.critical("Found Diffrence in %s -> %s : %s " % (module,item,d))
-                        log.critical("Found Diffrence in %s -> %s : %s " % (module,item,d))
-                        log.warning(d)
                         try:
-                            for k in d.keys():
-                                k = k.replace('root[','')
-                                k = k.replace("'","")
-                                k = k.replace("][",'.')
-                                k = k.replace(']','')
-                                mykeys.append(k)
+                            for df in d.keys():
+                                for k in d[df].keys():
+                                    k = k.replace('root[','')
+                                    k = k.replace("'","")
+                                    k = k.replace("][",'.')
+                                    k = k.replace(']','')
+                                    mykeys.append(k)
                         except AttributeError:
-                            for k in d:
-                                k = k.replace('root[', '')
-                                k = k.replace("'", "")
-                                k = k.replace("][", '.')
-                                k = k.replace(']', '')
-                                mykeys.append(k)
+                            for k in d.keys():
+                                for l in list(d[k]):
+                                    l = l.replace('root[', '')
+                                    l = l.replace("'", "")
+                                    l = l.replace("][", '.')
+                                    l = l.replace(']', '')
+                                    mykeys.append(l)
 
-                    if args.show_items and module in bt_ordered.keys() and module in prd_ordered.keys():
+                    if args.show_items and module in bt_ordered.keys() and module in prd_ordered.keys() and len(mykeys) > 0:
 
                             print "======= BT YAML ITEM: %s: %s ==============" % (module,item)
                             yaml_out = ruamel.yaml.round_trip_dump(bt_ordered[module][item],indent=4)
