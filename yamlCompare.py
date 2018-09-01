@@ -36,14 +36,14 @@ def findKey(obj,mypath):
 if __name__ == '__main__':
     diffs = {}
 
-    arg = argparse.ArgumentParser('Dryad Yaml Configuration Diff tool')
-    arg.add_argument('--prd', help='Path to PRD configuration Directory', required=True)
-    arg.add_argument('--bt', help='Path to BT configuration Directory', required=True)
+    arg = argparse.ArgumentParser('Yaml Configuration Diff tool')
+    arg.add_argument('--prd', help='Path to Left configuration Directory', required=True)
+    arg.add_argument('--bt', help='Path to Right configuration Directory', required=True)
     arg.add_argument('-f', '--fields' , help='Fields names to identify Yaml entities',
                      nargs='*', default=['name','key','description'])
     arg.add_argument('-i', '--ignore', help='Field names to ommit from diff',
                      nargs='*', default=['uri','identifier', 'throttling', 'delay'])
-    arg.add_argument('-m', '--modules', help="Specify Dryad Modules",
+    arg.add_argument('-m', '--modules', help="Specify Modules",
                      nargs='*', default=[])
     arg.add_argument('--show-items', help="Output Diffrences", action="store_true", default=False)
     arg.add_argument('-v','--verbose', help="Verbosity Level",
@@ -204,5 +204,3 @@ if __name__ == '__main__':
                                         break
                                 else:
                                     print(Style.RESET_ALL + line)
-
-
